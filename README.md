@@ -2,7 +2,7 @@
 
 ## Usage
 ```text
-vlan_configurator.py [-h] [-v VLANS] [-r ROUTES] [-p ENABLE_PROXY] [-u PROXY_URL] [-d] username password api_url
+python vlan_configurator.py [-h] [-v VLANS] [-r ROUTES] [-p ENABLE_PROXY] [-u PROXY_URL] [-d] username password api_url
 
 positional arguments:
   username              API Username
