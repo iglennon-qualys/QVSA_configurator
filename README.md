@@ -22,18 +22,32 @@ optional arguments:
   -d, --debug           Enable debug output
 ```
 
+## Description
 
-## VLANs CSV Configuration
+This script will add and/or remove VLANs and/or Static Routes on Qualys Virtual Scanner Appliances.
+
+The script will first download a list of the existing scanner appliances and their configurations from your subscription.
+It will then build an in-memory picture of the scanner appliances to which it will add and/or remove VLAN and/or
+Static Route data as specified in the specified CSV files.
+
+Columns in the CSV files must strictly adhere to the formats specified below.
+
+
+## VLANs CSV Format
 
 The CSV file does not use a header row.  The columns should be populated as follows.  An example file is provided.
 ```text
-Appliance Name, VLAN ID, IPv4 Address, Subnet Mask, VLAN Name
+Appliance Name, VLAN ID, IPv4 Address, Subnet Mask, VLAN Name, Action
 ```
 
-## Routes CSV configuration
+The column **Action** must contain 'add' or 'remove' to specify the action to take for the vlan 
+
+## Routes CSV Format
 
 The CSV file does not use a header row.  The columns should be populated as follows.  An example file is provided
 
 ```text
-Appliance Name, Route Name, IPv4 Address, Subnet Mask, Gateway IPv4 Address
+Appliance Name, Route Name, IPv4 Address, Subnet Mask, Gateway IPv4 Address, Action
 ```
+
+The column **Action** must contain 'add' or 'remove' to specify the action to take for the route

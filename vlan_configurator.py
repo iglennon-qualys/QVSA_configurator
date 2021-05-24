@@ -9,6 +9,8 @@ import argparse
 from getpass import getpass
 import sys
 
+import QualysVirtualScannerAppliance
+
 
 def response_handler(response: ET.ElementTree):
     if response.find('RESPONSE/CODE') is None:
@@ -49,6 +51,17 @@ def get_appliances(api: QualysAPI.QualysAPI):
     return ret_val
 
 
+def get_full_appliances(api: QualysAPI.QualysAPI):
+    resp: ET.ElementTree
+    full_url = "%s/api/2.0/fo/appliance/?action=list&output_mode=full" % api.server
+    ret_val = {}
+
+    resp = api.makeCall(full_url)
+    if not response_handler(resp):
+        return None
+    return resp
+
+
 if __name__ == '__main__':
     # Script entry point
     parser = argparse.ArgumentParser()
@@ -86,107 +99,93 @@ if __name__ == '__main__':
     api = QualysAPI.QualysAPI(svr=api_url, usr=args.username, passwd=password, proxy=args.proxy_url,
                               enableProxy=args.enable_proxy, debug=args.debug)
 
-    # We need a list of appliances from the subscription to both sanity check the input and translate
-    # appliance names to appliance IDs
+    # First we need a list of appliances from the subscription to build our internal picture
     print("Getting appliances from subscription and building vlan/route tables")
-    appliances = get_appliances(api)
-    if appliances is None:
+    # appliances = get_appliances(api)
+    full_appliances = get_full_appliances(api)
+
+    # The qvsas dict will contain all of the appliances in the subscription as QualysVirtualScannerAppliance objects
+    # as values and the Appliance Name as its key
+    qvsas = {}
+
+    if full_appliances is None:
+        # If we cannot get a list of appliances, there is nothing more to do so we quit
         print('ERROR: Could not get list of scanner appliances')
         sys.exit(-1)
 
-    if args.vlans:
-        # vlans is a dictionary type variable which will contain appliances and their proposed vlan configurations
-        # { appliance_id: [vlan1, vlan2, ...] }
-        # each configuration is a QualysVLAN object
-        vlans = {}
+    # For each appliance in the full_appliances XML output, create a QualysVirtualScannerAppliance object and add it
+    # to the qvsas dict
+    for xml_appliance in full_appliances.findall('.//APPLIANCE'):
+        appliance_id = xml_appliance.find('ID').text
+        appliance = QualysVirtualScannerAppliance.QualysVirtualScannerAppliance(id=appliance_id)
+        appliance.get_from_xml(xml_appliance)
+        qvsas[appliance.name] = appliance
 
-        # Process the vlan CSV file to build the vlans dictionary, as described above
+    # If we have specified '-v' or '--vlans'
+    if args.vlans:
+        # Process the vlan CSV file to build new QualysVLAN objects
         with open(args.vlans, newline='') as csv_file:
             vlan_reader = csv.reader(csv_file, delimiter=',', quotechar='"')
             for row in vlan_reader:
-                # Get the appliance name from the CSV
+                # Get the appliance name from the CSV and with it grab the QualysVirtualScannerAppliance object
                 appliance_name = row[0]
-
-                # Sanity check to make sure the appliance exists in the subscription
-                if appliance_name not in appliances.keys():
+                if appliance_name in qvsas.keys():
+                    appliance = qvsas[appliance_name]
+                else:
                     print("Fatal Error: Appliance %s does not exist in subscription" % appliance_name)
                     sys.exit(1)
 
                 # Create a QualysVLAN object with the vlan configuration contents from the CSV file
                 v = QualysVLAN.QualysVLAN(row[1], row[2], row[3], row[4])
-
-                # Check if the appliance already exists in the dictionary
-                # If so, append the new one.  If not, create it
-                if appliance_name in vlans.keys():
-                    vlan = vlans[appliance_name]
-                    vlan.append(v)
-                    vlans[appliance_name] = vlan
+                if row[5] == 'add':
+                    appliance.add_vlan(v)
+                elif row[5] == 'remove':
+                    appliance.remove_vlan(v)
                 else:
-                    vlans[appliance_name] = [v]
-
-                print("Starting VLAN Setup")
-                full_url = ''
-
-                for app in vlans.keys():
-                    appid = appliances[app]
-                    for vlan in vlans[app]:
-                        url = vlan.create_url()
-                        if full_url != "":
-                            full_url = "%s," % full_url
-                        full_url = "%s%s" % (full_url, url)
-
-                    # We need to add to the beginning of this URL the type of update we're making
-                    full_url = "set_vlans=%s" % full_url
-
-                    # Now that we have the action part of the URL we can make the API call
-                    print("VLAN Setup: Updating appliance %s (ID: %s)" % (app, appid))
-                    update_appliance(full_url, appid, api, debug=args.debug)
-
-                print("VLAN Setup Complete")
+                    print('ERROR: Row %s does not contain an add/remove instruction' % row)
+                    sys.exit(1)
 
     if args.routes:
-        # routes is a dictionary type variable which will contain appliances and their proposed static routes
-        # { appliance_id: [route1, route2, ...]
-        # each route is itself a QualysRoute object
-        routes = {}
-
         # Process the routes CSV file to build the routes dictionary, as described above
         with open(args.routes, newline='') as csv_file:
             route_reader = csv.reader(csv_file, delimiter=',', quotechar='"')
             for row in route_reader:
                 # Get the appliance name from the CSV
                 appliance_name = row[0]
-
-                # Sanity check to make sure the appliance exists in the subscription
-                if appliance_name not in appliances.keys():
+                if appliance_name in qvsas.keys():
+                    appliance = qvsas[appliance_name]
+                else:
                     print("Fatal Error: Appliance %s does not exist in subscription" % appliance_name)
                     sys.exit(1)
 
                 # Create an array with the static contents from the CSV file
                 r = QualysRoute.QualysRoute(row[1], row[2], row[3], row[4])
-
-                # Check if the appliance already has a route configuration
-                # If so, append the new one.  If not, create it
-                if appliance_name in routes.keys():
-                    route = routes[appliance_name]
-                    route.append(r)
-                    routes[appliance_name] = route
+                if row[5] == 'add':
+                    appliance.add_route(r)
+                elif row[5] == 'remove':
+                    appliance.remove_route(r)
                 else:
-                    routes[appliance_name] = [r]
+                    print('ERROR: Row %s does not contain an add/remove instruction' % row)
+                    sys.exit(1)
 
-        print("Starting Static Routes Setup")
-        full_url = ""
-        for app in routes.keys():
-            appid = appliances[app]
-            for route in routes[app]:
-                url = route.create_url()
-                if full_url != "":
-                    full_url = "%s," % full_url
-                full_url = "%s%s" % (full_url, url)
-
-            full_url = "set_routes=%s" % full_url
-            print("Static Routes Setup: Updating appliance %s (ID: %s)" % (app, appid))
-            update_appliance(full_url, appid, api, debug=args.debug)
-        print("Static Routes Setup Complete")
+    bRoutes = False
+    if args.routes:
+        bRoutes = True
+    bVLANs = False
+    if args.vlans:
+        bVLANs = True
+    for app_name in qvsas.keys():
+        if qvsas[app_name].dirty:
+            print('Updating Appliance %s' % app_name)
+            qvsas[app_name].build_update_request(routes=bRoutes, vlans=bVLANs)
+            full_url = api.server + qvsas[app_name].update_url
+            resp = api.makeCall(url=full_url, method='POST')
+            if not response_handler(resp):
+                print('ERROR: Error updating appliance %s' % app_name)
+                sys.exit(1)
+            else:
+                print('Appliance %s updated' % app_name)
+        else:
+            print('Skipping Appliance %s : No updates' % app_name)
 
     sys.exit(0)

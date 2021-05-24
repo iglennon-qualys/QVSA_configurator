@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field
 
 
-@dataclass()
+@dataclass(eq=True, frozen=False, unsafe_hash=True)
 class QualysVLAN:
-    vlan_id: str = field(default=None)
-    vlan_name: str = field(default=None)
-    ipv4_address: str = field(default=None)
-    netmask: str = field(default=None)
+    vlan_id: str = field()
+    vlan_name: str = field(hash=False)
+    ipv4_address: str = field(hash=False)
+    netmask: str = field(hash=False)
 
     def __init__(self, vlan_id, ipv4_address, netmask, vlan_name):
         self.vlan_id = vlan_id

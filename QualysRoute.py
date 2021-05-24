@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field
 
 
-@dataclass()
+@dataclass(eq=True, frozen=False, unsafe_hash=True)
 class QualysRoute:
-    route_name: str = field(default=None)
-    ipv4_address: str = field(default=None)
-    netmask: str = field(default=None)
-    ipv4_gateway: str = field(default=None)
+    route_name: str = field()
+    ipv4_address: str = field(hash=False)
+    netmask: str = field(hash=False)
+    ipv4_gateway: str = field(hash=None)
 
     def __init__(self, route_name, ipv4_address, netmask, ipv4_gateway):
         self.route_name = route_name
