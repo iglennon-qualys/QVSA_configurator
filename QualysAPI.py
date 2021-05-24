@@ -2,6 +2,7 @@ import requests
 import xml.etree.ElementTree as ET
 from time import sleep
 
+
 class QualysAPI:
     """Class to simplify the making and handling of API calls to the Qualys platform
 
@@ -42,6 +43,12 @@ class QualysAPI:
             debug       : Boolean : If True, will output debug information to the console during member function
                                     execution
                                     Default value = False
+
+    podPicker(pod)
+
+        Convert a POD string to an API URL
+
+            pod         : String  : The Qualys Pod code ('US01', 'US02', 'US03', 'EU01', 'EU02' or 'IN01')
 
     makeCall(url, payload, headers, retryCount)
 
@@ -103,7 +110,7 @@ class QualysAPI:
         # Add a default X-Requested-With header (most API calls require it, it doesn't hurt to have it in all calls)
         self.sess.headers['X-Requested-With'] = 'python3/requests'
 
-    def makeCall(self, url, payload="", headers=None, retryCount=0):
+    def makeCall(self, url, payload="", headers=None, retryCount=0, method='POST', returnwith='xml'):
         # Get the headers from our own session object
         rheaders = self.sess.headers
         # If there are headers (meaning the __init__ method has been called and the api object was correctly created)
@@ -114,7 +121,7 @@ class QualysAPI:
                 rheaders[h] = headers[h]
 
         # Create a Request object using the requests library
-        r = requests.Request('POST', url, data=payload, headers=rheaders)
+        r = requests.Request(method, url, data=payload, headers=rheaders)
         # Prepare the request for sending
         prepped_req = self.sess.prepare_request(r)
         # If the proxy is enabled, send via the proxy
@@ -127,6 +134,10 @@ class QualysAPI:
         if self.debug:
             print("QualysAPI.makeCall: Request Headers")
             print("%s" % str(rheaders))
+            print("QualysAPI.makeCall: Request text")
+            print("%s" % str(r.url))
+            print("QualysAPI.makeCall: Request data")
+            print("%s" % str(r.data))
             print("QualysAPI.makeCall: Response Headers...")
             print("%s" % str(resp.headers))
             print("QualysAPI.makeCall: Response text...")
@@ -138,8 +149,8 @@ class QualysAPI:
             crun = int(resp.headers['X-Concurrency-Limit-Running'])
             # If crun > climit then we have hit the concurrency limit.  We then wait for a number of seconds depending
             #   on how many retry attempts there have been
-            if crun > climit:
-                print("QualysAPI.makeCall: Concurrency limit hit.  %s/%s running calls" % (crun,climit))
+            if crun >= climit:
+                print("QualysAPI.makeCall: Concurrency limit hit.  %s/%s running calls" % (crun, climit))
                 retryCount = retryCount + 1
                 if retryCount > 15:
                     print("QualysAPI.makeCall: Retry count > 15, waiting 60 seconds")
@@ -156,7 +167,7 @@ class QualysAPI:
 
                 # Make a self-referential call to this same class method, passing in the retry count so the next
                 #   iteration knows how many attempts have been made so far
-                resp = self.makeCall(url=url, payload=payload,headers=headers, retryCount=retryCount)
+                resp = self.makeCall(url=url, payload=payload, headers=headers, retryCount=retryCount)
 
         # Handle rate limit failures
         if 'X-RateLimit-ToWait-Sec' in resp.headers.keys():
@@ -187,5 +198,9 @@ class QualysAPI:
         # Increment the API call count (failed calls are not included in the count)
         self.callCount = self.callCount + 1
 
-        # Return the response as an ElementTree XML object
-        return ET.fromstring(resp.text)
+        if returnwith == 'xml':
+            # Return the response as an ElementTree XML object
+            return ET.fromstring(resp.text)
+        if returnwith == 'text':
+            # Return with the response as a text string
+            return resp.text

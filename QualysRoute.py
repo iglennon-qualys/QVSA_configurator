@@ -1,14 +1,18 @@
+from dataclasses import dataclass, field
+
+
+@dataclass()
 class QualysRoute:
-    routename: str
-    ipv4addr: str
-    netmask: str
-    ipv4gateway: str
+    route_name: str = field(default=None)
+    ipv4_address: str = field(default=None)
+    netmask: str = field(default=None)
+    ipv4_gateway: str = field(default=None)
 
-    def __init__(self, routename, ipv4addr, netmask, ipv4gateway):
-        self.routename = routename
-        self.ipv4addr = ipv4addr
+    def __init__(self, route_name, ipv4_address, netmask, ipv4_gateway):
+        self.route_name = route_name
+        self.ipv4_address = ipv4_address
         self.netmask = netmask
-        self.ipv4gateway = ipv4gateway
+        self.ipv4_gateway = ipv4_gateway
 
-    def createurl(self):
-        return "%s|%s|%s|%s" % (self.ipv4addr, self.netmask, self.ipv4gateway, self.routename)
+    def create_url(self):
+        return "%s|%s|%s|%s" % (self.ipv4_address, self.netmask, self.ipv4_gateway, self.route_name)

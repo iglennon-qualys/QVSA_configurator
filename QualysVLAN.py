@@ -1,15 +1,19 @@
-class QualysVLAN:
-    vlanid: str
-    vlanname: str
-    ipv4addr: str
-    netmask: str
+from dataclasses import dataclass, field
 
-    def __init__(self, vlanid, ipv4addr, netmask, vlanname):
-        self.vlanid = vlanid
-        self.vlanname = vlanname
-        self.ipv4addr = ipv4addr
+
+@dataclass()
+class QualysVLAN:
+    vlan_id: str = field(default=None)
+    vlan_name: str = field(default=None)
+    ipv4_address: str = field(default=None)
+    netmask: str = field(default=None)
+
+    def __init__(self, vlan_id, ipv4_address, netmask, vlan_name):
+        self.vlan_id = vlan_id
+        self.vlan_name = vlan_name
+        self.ipv4_address = ipv4_address
         self.netmask = netmask
 
-    def createurl(self):
-        return "%s|%s|%s|%s" % (self.vlanid, self.ipv4addr, self.netmask, self.vlanname)
+    def create_url(self):
+        return "%s|%s|%s|%s" % (self.vlan_id, self.ipv4_address, self.netmask, self.vlan_name)
 
