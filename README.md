@@ -22,6 +22,14 @@ optional arguments:
   -d, --debug           Enable debug output
 ```
 
+### Example
+Update VLANs only, on the EU02 platform, requesting secure password entry
+
+```bash
+$ python  -v vlans.csv apiuser - https://qualyspia.qg2.apps.qualys.eu 
+Enter password:
+```
+
 ## Description
 
 This script will add and/or remove VLANs and/or Static Routes on Qualys Virtual Scanner Appliances.
